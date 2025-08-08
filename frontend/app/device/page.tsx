@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AddDeviceForm from './component/AddDevice';
 
 type Sensor = {
   device: string;
@@ -16,6 +17,7 @@ type DeviceMap = {
 
 export default function DevicePage() {
   const [devices, setDevices] = useState<DeviceMap>({});
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -23,7 +25,6 @@ export default function DevicePage() {
         const res = await fetch('http://localhost:3001/api/sensors');
         const data: Sensor[] = await res.json();
 
-        // Kelompokkan sensor berdasarkan device
         const grouped: DeviceMap = {};
 
         data.forEach((sensor) => {
@@ -37,9 +38,11 @@ export default function DevicePage() {
 
           grouped[device].sensors.push(sensor);
 
-          // Update status device jika ada sensor Warning atau Down
-          if (status === 'Warning') grouped[device].status = 'Warning';
-          if (status === 'Down') grouped[device].status = 'Down';
+          if (status === 'Down') {
+            grouped[device].status = 'Down';
+          } else if (status === 'Warning' && grouped[device].status !== 'Down') {
+            grouped[device].status = 'Warning';
+          }
         });
 
         setDevices(grouped);
@@ -64,36 +67,66 @@ export default function DevicePage() {
     }
   };
 
+  const handleAddDevice = (deviceName: string, sensorCount: number) => {
+    const newSensors: Sensor[] = Array.from({ length: sensorCount }).map(() => ({
+      device: deviceName,
+      status: 'Up',
+    }));
+
+    setDevices((prev) => ({
+      ...prev,
+      [deviceName]: {
+        sensors: newSensors,
+        status: 'Up',
+      },
+    }));
+
+    setShowForm(false);
+  };
+
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white font-sans">
-      <main className="p-6">
-        <div className="bg-[#1e293b] rounded-xl p-6">
-          <h2 className="text-xl font-semibold mb-4">Devices</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-gray-400 border-b border-gray-700">
-                  <th className="py-2 px-4">Status</th>
-                  <th className="py-2 px-4">Device</th>
-                  <th className="py-2 px-4">Jumlah Sensor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(devices).map(([deviceName, { sensors, status }]) => (
-                  <tr key={deviceName} className="border-b border-gray-700 hover:bg-[#334155]">
-                    <td className="py-3 px-4 flex items-center">
-                      <span className={`h-3 w-3 rounded-full ${getStatusColor(status)} mr-2`}></span>
-                      {status}
-                    </td>
-                    <td className="py-3 px-4">{deviceName}</td>
-                    <td className="py-3 px-4">{sensors.length}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+    <div className="min-h-screen bg-[#0f172a] text-white font-sans p-6 relative">
+      <div className="bg-[#1e293b] rounded-xl p-6 w-full">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Device</h2>
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-md transition duration-200"
+            onClick={() => setShowForm(true)}
+          >
+            Add Device
+          </button>
         </div>
-      </main>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-gray-400 border-b border-gray-700">
+                <th className="py-2 px-4">Status</th>
+                <th className="py-2 px-4">Devices</th>
+                <th className="py-2 px-4">Sensors</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(devices).map(([deviceName, { sensors, status }]) => (
+                <tr key={deviceName} className="border-b border-gray-700 hover:bg-[#334155]">
+                  <td className="py-3 px-4 flex items-center">
+                    <span className={`h-3 w-3 rounded-full ${getStatusColor(status)} mr-2`}></span>
+                    {status}
+                  </td>
+                  <td className="py-3 px-4">{deviceName}</td>
+                  <td className="py-3 px-4">{sensors.length}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal Form */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <AddDeviceForm onSubmit={handleAddDevice} onCancel={() => setShowForm(false)} />
+        </div>
+      )}
     </div>
   );
 }
